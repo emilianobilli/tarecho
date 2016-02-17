@@ -19,6 +19,9 @@ from elemento.models import HLSPreset
 from elemento.models import H264Preset
 from elemento.models import Config
 
+from elemento.M3U8   import M3U8
+from elemento.M3U8   import M3U8Error
+
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # System
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -61,6 +64,11 @@ def jobWorker (ffmpeg, tmp_path, job):
     # Trae la lista completa de perfiles de transcodificacion
     h264_preset_list = hls_preset.h264_presets.all()
 
+    # 
+    # Crea el root playlist
+    m3u8_playlist = M3U8(hls_preset.playlist_root(basename))
+
+
     for h264_preset in h264_preset_list:
 	try:
 	    playlist = dispatchTranscode(ffmpeg, abs_filename, output_path, basename, tmp_path, hls_preset, h264_preset)
@@ -68,6 +76,9 @@ def jobWorker (ffmpeg, tmp_path, job):
 	    job.status  = 'E'
 	    job.message = str(e)
 	    exit(0)
+
+
+
 
 def dispatchTranscode (ffmpeg, input_file, dst_path, dst_basename, tmp_path, hls_preset, h264_preset):
 
