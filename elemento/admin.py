@@ -24,3 +24,7 @@ class JobAdmin(admin.ModelAdmin):
 class ConfigAdmin(admin.ModelAdmin):
     pass
 
+@admin.register(models.OutputFile)
+class OutputFileAdminn(admin.ModelAdmin):
+    pass
+

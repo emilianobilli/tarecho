@@ -25,7 +25,7 @@ class Config(models.Model):
 	('Y', 'Yes'),
 	('N', 'No')
     )
-    workers	      = models.CharField(max_length=2, help_text="Max number of simultaneous Workers")
+    workers	      = models.IntegerField(default=2, help_text="Max number of simultaneous Workers")
     temporal_path     = models.CharField(max_length=255, help_text="Path to temporal destination Files")
     delete_on_success = models.CharField(max_length=1, choices=YES_NO, help_text="Automatic delete after transcode")
     ffmpeg_bin	      = models.CharField(max_length=255, help_text="ffmpeg executable")
@@ -172,6 +172,7 @@ class Job(models.Model):
 #    creation_time     = models.DateTimeField(auto_now=True)
 #    start_time	      = models.DateTimeField(blank=True)
 #    end_time          = models.DateTimeField(blank=True)
+    worker_pid	      = models.IntegerField(default=-1)	
     hls_profile	      = models.ForeignKey(HLSPreset)
     input_filename    = models.CharField(max_length=255, help_text="Input File")
     input_path	      = models.CharField(max_length=255, help_text="Input Path")
@@ -185,10 +186,13 @@ class Job(models.Model):
     def __unicode__(self):
 	return '%d:%s' % (self.id, self.name)
 
-class OuputFile(models.Model):
+class OutputFile(models.Model):
     job	     = models.ForeignKey(Job)
     path     = models.CharField(max_length=255)
     filename = models.CharField(max_length=255)
 
     def __unicode__(self):
 	return self.filename
+
+
+

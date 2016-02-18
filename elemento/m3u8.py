@@ -22,7 +22,7 @@ class M3U8Error(Exception):
 
 M3U8_VideoCodecs = { 'baseline' : {'3.0': 'avc1.66.30', '3.1': 'avc1.42001f'},
 		     'main'     : {'3.0': 'avc1.77.30', '3.1': 'avc1.4d001f', '4.0': 'avc1.4d0028'},
-		     'high'	: {'3.1': 'avc1.64001f','4.0': 'avc1.640028', '4.1': 'avc1.640028' } }
+		     'high'	: {'3.1': 'avc1.64001f','4.0': 'avc1.640028', '4.1': 'avc1.640028'} }
 
 M3U8_AudioCodecs = { 'aac-lc' : 'mp4a.40.2' } 
 
@@ -30,6 +30,36 @@ DEFAULT_AUDIO_CODEC = 'aac-lc'
 
 BANDWIDTH_FACTOR = 1.225
 AVERAGE_BANDWITH_FACTOR = 1.084
+
+
+def M3U8GetFiles(playlist):
+    
+    FileList = []
+
+    with open(playlist) as f:
+	content = f.readlines()
+	f.close()
+
+    i = 0
+    m3u8_end = False
+    for info in content:
+	if i == 0:
+	    if not info.startswith('#EXTM3U'):
+		raise M3U8Error('File: %s not a valid m3u8 file' % playlist)
+	    i = i + 1
+	else:
+	    if info.startswith('#EXT-X-ENDLIST'):
+		m3u8_end = True
+	    else:
+		if not info.startswith('#'):
+		    FileList.append(info.replace('\n',''))
+
+    if not m3u8_end:
+	raise M3U8Error('File: %s is an incomplete playlist' % playlist)
+
+    print FileList
+
+
 
 class M3U8(object):
     def __init__(self, playlist, version=3):
@@ -85,10 +115,11 @@ class M3U8(object):
 
 
 
-x = M3U8('flenson.m3u8')
-x.addRendition('baseline', '3.0', 250+64, '480x270', 'flenson_270k.m3u8')
-x.addRendition('baseline', '3.0', 375+64, '480x270', 'flenson_375k.m3u8')
-x.save('./')
+#x = M3U8('flenson.m3u8')
+#x.addRendition('baseline', '3.0', 250+64, '480x270', 'flenson_270k.m3u8')
+#x.addRendition('baseline', '3.0', 375+64, '480x270', 'flenson_375k.m3u8')
+#M3U8GetFiles('/mnt/www/zolecha/cdnplayboy/ffmpeg/output/zolecha_375.m3u8')
+#x.save('./')
 
 
     

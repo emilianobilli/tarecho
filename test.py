@@ -18,9 +18,12 @@ from django.core.exceptions import *
 from elemento.models import HLSPreset
 from elemento.models import H264Preset
 from elemento.models import Config
+from elemento.models import Job
+from elemento.models import OutputFile
 
-from elemento.M3U8   import M3U8
-from elemento.M3U8   import M3U8Error
+from elemento.m3u8   import M3U8
+from elemento.m3u8   import M3U8Error
+from elemento.m3u8   import M3U8GetFiles
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # System
@@ -30,9 +33,15 @@ from sys    import exit
 from sys    import argv
 from subprocess import check_call
 from subprocess import CalledProcessError
+import time
 import logging
 import os
 
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Signals
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+from signal import signal
+from signal import SIGCHLD
 
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -41,6 +50,86 @@ import os
 LOG_FILE = './log/elemento.log'
 ERR_FILE = './log/elemento.err'
 PID_FILE = './pid/elemento.pid'
+
+
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# workerDie(): Manejador de la signal SIGCHLD, comprueba que el hijo no haya muerto 
+#              de manera inesperada y corrige el resultado de la transferencia
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+def workerDie(signaln, frame):
+    pid, status = waitpid(-1, WNOHANG)
+    while pid != 0:
+	try:
+	    # Busca cual es el hijo que termino
+	    J = Job.objects.get(worker_pid=pid)
+	    if J.status == 'P':
+    		# Fallo inesperadamente
+    		logging.error('WorkerDie(): Worker [Pid=%d] died with status [%d]' % (pid,status))
+    	        logging.error('WorkerDie(): Queue [%s] in error state' % J)
+	        J.status = 'E'
+    		J.message  = 'Worker died Unexpectedly'
+    		J.save()
+	    else:
+    		logging.info('WorkerDie(): Worker [Pid=%d] end, Transfer result = %s' % (pid,J.message))
+	except:
+	    # No lo encontro, es un hijo no reconocido
+	    logging.error('WorkerDie(): Unregistred worker die [Pid=%d]' % pid)
+	try:
+	    pid, status = waitpid(-1, WNOHANG)
+	except OSError as e:
+	    #
+	    # Si no tiene hijos tira un error
+	    #
+	    if e.errno == 10:
+		break;
+
+
+def getScheduleableJob(config):
+    
+    max_workers    = config.workers
+    active_workers = len(Job.objects.filter(status='P'))
+
+    if max_workers - active_workers >= 1:
+	jobs = Job.objects.filter(status='Q').order_by('-priority')
+
+    if len(jobs) > 0:
+	return jobs[0]
+
+    return None
+
+
+
+def forkWorker(job=None,config=None):
+
+    if job is None or config is None:
+	logging.error('ForkWorker(): Job can not be None')
+	return False
+
+    logging.info('ForkWorker(): Starting Worker for Job[%s]' % (job))
+
+    job.status = 'P'
+    job.save()
+
+    try:
+	Pid = fork()
+    except OSError as e:
+	logging.error('ForkWorker(): Can not call fork() -> [%s]' % e.strerror)
+	return False
+
+    if Pid == 0:
+	workerPid = getpid()
+	job.worker_pid = workerPid
+	job.save()
+
+	#
+	# Dispatch a worker
+	#
+	jobWorker(config.ffmpeg_bin, config.temporal_path, job)
+
+
+    logging.info('ForkWorker(): Worker Pid -> [%d]' % Pid)
+    return True
 
 
 def jobWorker (ffmpeg, tmp_path, job):
@@ -75,9 +164,65 @@ def jobWorker (ffmpeg, tmp_path, job):
 	except DispatchError as e:
 	    job.status  = 'E'
 	    job.message = str(e)
+	    job.save()
 	    exit(0)
 
+	if not output_path.endswith('/'):
+	    output_path = output_path + '/'
 
+	if not os.path.isfile(output_path+playlist):
+	    job.status = 'E'
+	    job.message = 'Playlist could not be found at: %s%s' % (output_path, playlist)
+	    job.save()
+	    exit(0)
+
+	# TODO: Falta scanear y agregar los archivos    
+	try:
+	    files = M3U8GetFiles(output_path+playlist)
+	except M3U8Error as e:
+	    job.status = 'E'
+	    job.message = 'Error getting files from playlist [ %s%s ]: %s' % (output_path, playlist, e)
+	    job.save()
+	    exit(0)
+
+	NewFile = models.OutputFile()
+	NewFile.job  = job
+	NewFile.path = output_path
+	NewFile.filename = playlist
+	NewFile.save()
+    
+	for f  in files:
+	    NewFile = models.OutputFile()
+	    NewFile.job      = job
+	    NewFile.path = output_path
+	    NewFile.filename = f
+	    NewFile.save()
+	#
+	# Add Rendition to root Playlist
+	bit_rate = int(h254_preset.video_bitrate) + int(h264_preset.audio_bitrate)
+	m3u8_playlist.addRendition(h264_preset.profile, h264_preset.level, bit_rate, h264_preset.resolution, playlist)
+
+    #
+    # Graba el Root Playlist
+    try:
+	m3u8_playlist.save(output_path)
+    except M3U8Error as e:
+	job.status  = 'E'
+	job.message = str(e)
+	job.save()
+	exit(0)
+	
+    # TODO: Agregar el root playlist
+    NewFile = models.OutputFile()
+    NewFile.job  = job
+    NewFile.path = output_path 
+    NewFile.filename = hls_preset.playlist_root(basename)
+    NewFile.save()
+
+    job.status = 'D'
+    job.save()
+
+    exit(0)
 
 
 def dispatchTranscode (ffmpeg, input_file, dst_path, dst_basename, tmp_path, hls_preset, h264_preset):
@@ -119,6 +264,10 @@ def dispatchTranscode (ffmpeg, input_file, dst_path, dst_basename, tmp_path, hls
 
 def ElementoMain():
     
+    # Registra el manejador de la senial SIGCHLD
+    signal(SIGCHLD, workerDie)
+
+
     logging.basicConfig(format   = '%(asctime)s - elemento.py -[%(levelname)s]: %(message)s', 
 			filename = LOG_FILE,
 			level    = logging.INFO)    
@@ -144,8 +293,21 @@ def ElementoMain():
 	exit(-1)
 
 
-   
-    ffmpeg_bin = config.ffmpeg_bin
+    while True:
+
+	job = getScheduleableJob(config) 
+
+	while job is not None:
+	    forkWorker(job, config)
+	    job = getScheduleableJob(config) 
+
+	time.sleep(300)
+  
+#    ffmpeg_bin = config.ffmpeg_bin
+
+
+
+
 
     x = HLSPreset.objects.all()
     for a in x:
