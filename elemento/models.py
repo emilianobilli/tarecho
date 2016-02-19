@@ -15,9 +15,6 @@ class Format(models.Model):
     def __unicode__(self):
 	return self.name
 
-
-
-
 class Config(models.Model):
     enable	      = models.BooleanField()
     date	      = models.DateField(auto_now=False, auto_now_add=True)
@@ -25,9 +22,19 @@ class Config(models.Model):
 	('Y', 'Yes'),
 	('N', 'No')
     )
+    LOG_LEVEL = (
+	('0', 'panic'),
+        ('8', 'fatal'),
+	('16', 'error'),
+	('24', 'warning'),
+	('32', 'info'),
+	('40', 'verbose'),
+	('48', 'debug')
+    )
     workers	      = models.IntegerField(default=2, help_text="Max number of simultaneous Workers")
     temporal_path     = models.CharField(max_length=255, help_text="Path to temporal destination Files")
     delete_on_success = models.CharField(max_length=1, choices=YES_NO, help_text="Automatic delete after transcode")
+    report_loglevel   = models.CharField(max_length=2, choices=LOG_LEVEL, help_text="ffmpeg log level")
     ffmpeg_bin	      = models.CharField(max_length=255, help_text="ffmpeg executable")
 
     def __unicode__(self):
@@ -173,7 +180,7 @@ class Job(models.Model):
 #    start_time	      = models.DateTimeField(blank=True)
 #    end_time          = models.DateTimeField(blank=True)
     worker_pid	      = models.IntegerField(default=-1)	
-    hls_profile	      = models.ForeignKey(HLSPreset)
+    hls_preset	      = models.ForeignKey(HLSPreset)
     input_filename    = models.CharField(max_length=255, help_text="Input File")
     input_path	      = models.CharField(max_length=255, help_text="Input Path")
     basename	      = models.CharField(max_length=100, help_text="Destination Basename")

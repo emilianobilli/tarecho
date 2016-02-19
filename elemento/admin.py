@@ -18,7 +18,7 @@ class FormatAdmin(admin.ModelAdmin):
 
 @admin.register(models.Job)
 class JobAdmin(admin.ModelAdmin):
-    pass
+    list_display = [ 'id', 'priority', 'name', 'worker_pid', 'input_filename', 'status', 'progress', 'message' ]
 
 @admin.register(models.Config)
 class ConfigAdmin(admin.ModelAdmin):
@@ -26,5 +26,5 @@ class ConfigAdmin(admin.ModelAdmin):
 
 @admin.register(models.OutputFile)
 class OutputFileAdminn(admin.ModelAdmin):
-    pass
+    list_display = [ 'job', 'path', 'filename' ]
 

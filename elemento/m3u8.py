@@ -28,9 +28,10 @@ M3U8_AudioCodecs = { 'aac-lc' : 'mp4a.40.2' }
 
 DEFAULT_AUDIO_CODEC = 'aac-lc'
 
-BANDWIDTH_FACTOR = 1.225
-AVERAGE_BANDWITH_FACTOR = 1.084
-
+BANDWIDTH_FACTOR = 1.254
+#BANDWIDTH_FACTOR = 1.225
+#AVERAGE_BANDWITH_FACTOR = 1.084
+AVERAGE_BANDWITH_FACTOR = 1.15
 
 def M3U8GetFiles(playlist):
     
@@ -57,7 +58,7 @@ def M3U8GetFiles(playlist):
     if not m3u8_end:
 	raise M3U8Error('File: %s is an incomplete playlist' % playlist)
 
-    print FileList
+    return FileList
 
 
 
