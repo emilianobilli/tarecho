@@ -16,8 +16,17 @@ Including another URLconf
 from django.conf.urls import url
 from django.contrib import admin
 
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Elemento
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+from elemento import views
+
 admin.site.site_header = 'TaReCho'
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
+    url(r'^elemento/api/job/$', views.view_GetPostJob),
+    url(r'^elemento/api/job/(?P<id>\d+)/$', views.view_GetJobId),
+    url(r'^elemento/api/job/(?P<id>\d+)/outputfile/$', views.view_GetJobIdOutputFile),
 ]
