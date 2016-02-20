@@ -33,6 +33,7 @@ class Config(models.Model):
     )
     workers	      = models.IntegerField(default=2, help_text="Max number of simultaneous Workers")
     temporal_path     = models.CharField(max_length=255, help_text="Path to temporal destination Files")
+    output_basepath   = models.CharField(max_length=255, help_text="Output Basepath")
     delete_on_success = models.CharField(max_length=1, choices=YES_NO, help_text="Automatic delete after transcode")
     report_loglevel   = models.CharField(max_length=2, choices=LOG_LEVEL, help_text="ffmpeg log level")
     ffmpeg_bin	      = models.CharField(max_length=255, help_text="ffmpeg executable")
@@ -184,10 +185,11 @@ class Job(models.Model):
     input_filename    = models.CharField(max_length=255, help_text="Input File")
     input_path	      = models.CharField(max_length=255, help_text="Input Path")
     basename	      = models.CharField(max_length=100, help_text="Destination Basename")
+    system_path       = models.BooleanField(help_text="If this option is checked, the output path is relative and the root is the value output_basepath setted in config")
     output_path	      = models.CharField(max_length=255, help_text="Destination Path")
     priority	      = models.CharField(max_length=1, default='9', help_text="0: Max priority, 9 Min Priority")
     status	      = models.CharField(max_length=1, choices=STATUS, default='D', help_text="Job Status")
-    progress	      = models.CharField(max_length=100, blank=True, help_text="Job Progress")
+    progress	      = models.IntegerField(default=0, help_text="Job Progress")
     message	      = models.CharField(max_length=510, blank=True,  help_text="Error or Warning message")
     
     def __unicode__(self):

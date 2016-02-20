@@ -21,6 +21,9 @@ from elemento.models import Config
 from elemento.models import Job
 from elemento.models import OutputFile
 
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# M3U8 Lite Library
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 from elemento.m3u8   import M3U8
 from elemento.m3u8   import M3U8Error
 from elemento.m3u8   import M3U8GetFiles
@@ -38,6 +41,7 @@ from os   import fork
 from os   import getpid
 from os   import WNOHANG
 from os   import path
+from os   import mkdir
 
 import time
 import logging
@@ -58,11 +62,22 @@ ERR_FILE = './log/elemento.err'
 PID_FILE = './pid/elemento.pid'
 REPORT_DIR = './reports/'
 
+
 class DispatchError(Exception):
     def __init__(self, value):
         self.value = value
     def __str__(self):
         return repr(self.value)
+
+
+def _mkdir_recursive(path):
+    sub_path = path.dirname(path)
+    if not path.exists(sub_path):
+        _mkdir_recursive(sub_path)
+    if not path.exists(path):
+        mkdir(path)
+
+
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # workerDie(): Manejador de la signal SIGCHLD, comprueba que el hijo no haya muerto 
@@ -77,12 +92,12 @@ def workerDie(signaln, frame):
 	    if J.status == 'P':
     		# Fallo inesperadamente
     		logging.error('WorkerDie(): Worker [Pid=%d] died with status [%d]' % (pid,status))
-    	        logging.error('WorkerDie(): Queue [%s] in error state' % J)
+    	        logging.error('WorkerDie(): Job [%s] in error state' % J)
 	        J.status = 'E'
     		J.message  = 'Worker died Unexpectedly'
     		J.save()
 	    else:
-    		logging.info('WorkerDie(): Worker [Pid=%d] end, Transfer result = %s' % (pid,J.message))
+    		logging.info('WorkerDie(): Worker [Pid=%d] end, Transco result = %s' % (pid,J.message))
 	except:
 	    # No lo encontro, es un hijo no reconocido
 	    logging.error('WorkerDie(): Unregistred worker die [Pid=%d]' % pid)
@@ -94,6 +109,8 @@ def workerDie(signaln, frame):
 	    #
 	    if e.errno == 10:
 		break;
+
+
 
 
 def getScheduleableJob(config):
@@ -119,13 +136,38 @@ def forkWorker(job=None,config=None):
 
     logging.info('ForkWorker(): Starting Worker for Job[%s]' % (job))
 
+
+    if job.system_path is True:
+	# En este caso el output_path es el system_path de la configuracion
+	# mas el output_path del Job
+	base = config.output_basepath
+	path = job.output_path
+    
+	if base.endswith('/') or path.startswith('/'):
+	    output_path = base + path[1:]
+	else:
+	    output_path = base + path
+
+	try:
+	    _mkdir_recursive(output_path)
+	except OSError as e:
+	    logging.error('forkWorker(): Unable to create output_path: %s' % output_path)
+	    job.status  = 'E'
+	    job.message = 'forkWorker(): Unable to create output_path: %s' % output_path
+	    job.save()
+	    return False
+
+    else:
+	output_path = job.output_path
+
+    job.output_path = output_path
     job.status = 'P'
     job.save()
 
     try:
 	Pid = fork()
     except OSError as e:
-	logging.error('ForkWorker(): Can not call fork() -> [%s]' % e.strerror)
+	logging.error('forkWorker(): Can not call fork() -> [%s]' % e.strerror)
 	return False
 
     if Pid == 0:
@@ -319,7 +361,12 @@ def ElementoMain():
 	logging.error("ElementoMain(): Temporal Path not Found")
 	exit(-1)
 
-    tmp_path = config.temporal_path
+    tmp_path    = config.temporal_path
+    
+    if not path.isdir(config.output_path):
+	logging.error("ElementoMain(): Output Path not Found")
+
+    output_path = config.output_path
 
     if not path.isfile(config.ffmpeg_bin):
 	logging.error("ElementoMain(): ffmpeg at path: %s not found" % config.ffmpeg_bin)
@@ -328,29 +375,18 @@ def ElementoMain():
 
     while True:
 
+	#
+	# getScheduleableJob(): Trae un trabajo de transcodificacion en status Queue siempre 
+	# 			y cuando tenga capacidad de workers disponibles
 	job = getScheduleableJob(config) 
 
 	while job is not None:
 	    forkWorker(job, config)
+	    
 	    job = getScheduleableJob(config) 
 
 	time.sleep(300)
   
-#    ffmpeg_bin = config.ffmpeg_bin
-
-
-
-
-
-    x = HLSPreset.objects.all()
-    for a in x:
-	for preset in a.h264_presets.all():
-	    dispatchTranscode('ffmpeg', 'flenson', '/home', 'ftrasn', 'tmp', a, preset)	
-
-#    print '%s %s' % (a.ffmpeg_segmenter_options(), preset.ffmpeg_params('/home/', 'putito'))
-#	print a.ffmpeg_params('/home/', 'putito', preset)
-
-
 
 
 class DaemonMain(Daemon):
