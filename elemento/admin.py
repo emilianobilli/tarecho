@@ -7,11 +7,12 @@ import models
 
 @admin.register(models.HLSPreset)
 class HLSPresetAdmin(admin.ModelAdmin):
-    pass
+    list_display = ['id', 'name', 'segment_time', 'extension' ]
 
 @admin.register(models.H264Preset)
 class H264PresetAdmin(admin.ModelAdmin):
-    pass
+    list_display = ['name', 'resolution', 'video_bitrate', 'audio_bitrate', 'level', 'profile' ]
+
 @admin.register(models.Format)
 class FormatAdmin(admin.ModelAdmin):
     pass
@@ -22,7 +23,7 @@ class JobAdmin(admin.ModelAdmin):
 
 @admin.register(models.Config)
 class ConfigAdmin(admin.ModelAdmin):
-    pass
+    list_display = ['id', 'date', 'enable', 'workers' ]
 
 @admin.register(models.OutputFile)
 class OutputFileAdminn(admin.ModelAdmin):
