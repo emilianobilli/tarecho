@@ -44,7 +44,28 @@ def view_GetJob(request):
 
 def view_PostJob(request):
 
-    pass
+    jsonData = json.loads(request.body)
+
+    job = Job()
+    job.input_filename     = jsonData['job']['input_filename']
+    job.input_path         = jsonData['job']['input_path']
+    job.name               = jsonData['job']['name']
+    job.basename           = jsonData['job']['basename']
+    job.hls_preset_id      = jsonData['job']['hls_preset_id']
+    job.priority           = jsonData['job']['priority']
+    job.output_path        = jsonData['job']['output_path']
+    job.system_path        = jsonData['job']['system_path']
+    job.status		   = 'Q' # Queue
+
+    job.save()
+
+    response.append({"job": {"id": job.id, "name": job.name}})
+
+    #
+    # La unica respuesta para esto es OK
+    status = http_REQUEST_OK
+    return HttpResponse(json.dumps(response), status=status, content_type='application/json') 
+
 
 
 def view_GetJobId (request, id):
@@ -91,7 +112,7 @@ def view_GetJobIdOutputFile(request, id):
 
     oflst = []
     for output_file in OutputFile.objects.filter(job=job):
-	oflst.append({"path": output_file.path, "filename": output_path.filename})
+	oflst.append({"path": output_file.path, "filename": output_file.filename})
 
 	
     response = {"job":

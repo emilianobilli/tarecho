@@ -70,12 +70,12 @@ class DispatchError(Exception):
         return repr(self.value)
 
 
-def _mkdir_recursive(path):
-    sub_path = path.dirname(path)
+def _mkdir_recursive(p):
+    sub_path = path.dirname(p)
     if not path.exists(sub_path):
         _mkdir_recursive(sub_path)
-    if not path.exists(path):
-        mkdir(path)
+    if not path.exists(p):
+        mkdir(p)
 
 
 
@@ -143,8 +143,10 @@ def forkWorker(job=None,config=None):
 	base = config.output_basepath
 	path = job.output_path
     
-	if base.endswith('/') or path.startswith('/'):
+	if base.endswith('/') and path.startswith('/'):
 	    output_path = base + path[1:]
+	elif not base.endswith('/') and not path.startswith('/'):
+	    output_path = base + '/' + path
 	else:
 	    output_path = base + path
 
@@ -363,10 +365,10 @@ def ElementoMain():
 
     tmp_path    = config.temporal_path
     
-    if not path.isdir(config.output_path):
+    if not path.isdir(config.output_basepath):
 	logging.error("ElementoMain(): Output Path not Found")
 
-    output_path = config.output_path
+    output_path = config.output_basepath
 
     if not path.isfile(config.ffmpeg_bin):
 	logging.error("ElementoMain(): ffmpeg at path: %s not found" % config.ffmpeg_bin)
