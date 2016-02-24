@@ -9,6 +9,7 @@ from models import OutputFile
 
 from django.core.exceptions import *
 
+http_POST_OK    = 201
 http_REQUEST_OK = 200
 http_NOT_FOUND  = 404
 
@@ -59,11 +60,11 @@ def view_PostJob(request):
 
     job.save()
 
-    response.append({"job": {"id": job.id, "name": job.name}})
-
+    response = {"job": {"id": job.id, "name": job.name}}
     #
     # La unica respuesta para esto es OK
-    status = http_REQUEST_OK
+
+    status = http_POST_OK
     return HttpResponse(json.dumps(response), status=status, content_type='application/json') 
 
 
@@ -108,7 +109,7 @@ def view_GetJobIdOutputFile(request, id):
 	job = Job.objects.get(id = id)
     except ObjectDoesNotExist:
 	status = http_NOT_FOUND
-	return HttResponse(json.dumps({}), status=status, content_type='application/json')
+	return HttpResponse(json.dumps({}), status=status, content_type='application/json')
 
     oflst = []
     for output_file in OutputFile.objects.filter(job=job):
