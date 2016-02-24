@@ -34,24 +34,27 @@ from elemento.m3u8   import M3U8GetFiles
 from daemon import Daemon
 from sys    import exit
 from sys    import argv
-from subprocess import check_call
-from subprocess import CalledProcessError
+from subprocess import Popen
+from subprocess import PIPE
 from os   import waitpid
 from os   import fork
 from os   import getpid
+from os   import wait
 from os   import WNOHANG
 from os   import path
 from os   import mkdir
+from os   import unlink
 
 import time
 import logging
-
+import shlex
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # Signals
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 from signal import signal
 from signal import SIGCHLD
+from signal import SIG_IGN
 
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -100,7 +103,7 @@ def workerDie(signaln, frame):
     		logging.info('WorkerDie(): Worker [Pid=%d] end, Transco result = %s' % (pid,J.message))
 	except:
 	    # No lo encontro, es un hijo no reconocido
-	    logging.error('WorkerDie(): Unregistred worker die [Pid=%d]' % pid)
+	    logging.error('WorkerDie(): Unregistred worker die [Pid=%d], status = %d ' % (pid, status))
 	try:
 	    pid, status = waitpid(-1, WNOHANG)
 	except OSError as e:
@@ -179,15 +182,16 @@ def forkWorker(job=None,config=None):
 
 	#
 	# Dispatch a worker
-	#
-	jobWorker(config.ffmpeg_bin, config.temporal_path, job, config.report_loglevel)
+	
+	jobWorker(config.ffmpeg_bin, config.temporal_path, job, config.report_loglevel, config.advanced_options)
 
+	
 
     logging.info('ForkWorker(): Worker Pid -> [%d]' % Pid)
     return True
 
 
-def jobWorker (ffmpeg, tmp_path, job, report_log_level):
+def jobWorker (ffmpeg, tmp_path, job, report_log_level, advanced_options):
 
     hls_preset  = job.hls_preset
     input_file  = job.input_filename
@@ -216,7 +220,7 @@ def jobWorker (ffmpeg, tmp_path, job, report_log_level):
 
     for h264_preset in h264_preset_list:
 	try:
-	    playlist = dispatchTranscode(ffmpeg, abs_filename, output_path, basename, tmp_path, hls_preset, h264_preset, report_log_level)
+	    playlist = dispatchTranscode(ffmpeg, abs_filename, output_path, basename, tmp_path, hls_preset, h264_preset, report_log_level, advanced_options)
 	except DispatchError as e:
 	    job.status  = 'E'
 	    job.message = e.value
@@ -281,7 +285,14 @@ def jobWorker (ffmpeg, tmp_path, job, report_log_level):
     exit(0)
 
 
-def dispatchTranscode (ffmpeg, input_file, dst_path, dst_basename, tmp_path, hls_preset, h264_preset, report_log_level):
+
+def launchCommand (cmd, env):
+    scmd = shlex.split(cmd)
+    proc  = Popen(scmd, stderr=PIPE, env=env, shell=False)
+    return proc.communicate()[1]
+
+
+def dispatchTranscode (ffmpeg, input_file, dst_path, dst_basename, tmp_path, hls_preset, h264_preset, report_log_level, advanced_options):
 
     if not dst_path.endswith('/'):
 	dst_path = dst_path + '/'
@@ -298,41 +309,73 @@ def dispatchTranscode (ffmpeg, input_file, dst_path, dst_basename, tmp_path, hls
     #	Nombre de destino del file transcodificado
     destination_temporal_name = h264_preset.filename(dst_basename)
 
-    transco_report = 'FFREPORT=file=%s%s.log:level=%s' % (REPORT_DIR, destination_temporal_name, report_log_level)
+    #   Nombre del reporte que se genera para este archivo
+    transcode_report_name = destination_temporal_name + '.log'
 
+    #   Variable de entorno para que se genere el reoprete
+    environ = { 'FFREPORT': 'file=%s%s:level=%s' % (REPORT_DIR, transcode_report_name, report_log_level)  }
 
-    ffmpeg_transcode_command_line = '%s %s -loglevel quiet -i %s %s %s' % (transco_report,
-									   ffmpeg,
-					                                   input_file,
-					                                   hls_preset.ffmpeg_segmenter_options(),
-					                                   h264_preset.ffmpeg_params(tmp_path, dst_basename))
+    #   Si el file de entrada tiene espacios hay que agregar las comillas sino se genera un error al llamar al ffmpeg
+    if ' ' in input_file:
+	input_file = '"' + input_file + '"'
 
+    #   Se arma la linea de comando para ejecutar
+    ffmpeg_transcode_command_line = '%s %s -i %s %s %s' % (ffmpeg,
+							   advanced_options,
+					                   input_file,
+					            	   hls_preset.ffmpeg_segmenter_options(),
+					                   h264_preset.ffmpeg_params(tmp_path, dst_basename))
+
+    
+    #   Construye el log
     logging.info('dispatchTranscode(): Command Line: %s' % ffmpeg_transcode_command_line)   
 
         
+    stderr_return = launchCommand(ffmpeg_transcode_command_line, environ)
+    if len(stderr_return) != 0:
+	raise DispatchError('ffmpeg exit with non 0 return code, error: %s' % (stderr_return))
+
+
+    #   Esto comprueba que se haya generado el archivo esperado
+    if not path.isfile(tmp_path + destination_temporal_name):
+	raise DispatchError('Unable to found temporal filename: %s, check Report: %s for more information' % (tmp_path + destination_temporal_name,
+													      transco_report_name))
+
+    logging.info('dispatchTranscode(): Temporal file: %s generated succefully' % tmp_path + destination_temporal_name)
+    
+
+
 
     #   Nombre de destino del playlist
     destination_playlist_name = hls_preset.playlist_filename(h264_preset, dst_basename)
 
-    segment_report = 'FFREPORT=file=%s%s.log:level=%s' % (REPORT_DIR, destination_playlist_name, report_log_level)
+    segment_report_name = destination_playlist_name + '.log'
 
-    ffmpeg_segmenter_command_line = '%s %s -loglevel quiet -i %s %s' % (segment_report,
-								        ffmpeg,
-						                        tmp_path + destination_temporal_name,
-						                        hls_preset.ffmpeg_params(dst_path, dst_basename, h264_preset))
+    environ = { 'FFREPORT': 'file=%s%s:level=%s' % (REPORT_DIR, segment_report_name, report_log_level) }
 
-    try:
-	check_call(ffmpeg_transcode_command_line, shell=True)
-    except CalledProcessError as e:
-	raise DispatchError('ffmpeg exit with non 0 return code: %d, report: %s' % (e.returncode, transco_report))
-    
+    ffmpeg_segmenter_command_line = '%s %s -i %s %s' % (ffmpeg,
+							advanced_options,
+						        tmp_path + destination_temporal_name,
+						        hls_preset.ffmpeg_params(dst_path, dst_basename, h264_preset))
+
 
     logging.info('dispatchTranscode(): Command Line: %s' % ffmpeg_segmenter_command_line)  
-    try:
-	check_call(ffmpeg_segmenter_command_line, shell=True)
-    except CalledProcessError as e:
-	raise DispatchError('ffmpeg exit with non 0 return code: %d, report: %s' % (e.returncode, segment_report))
 
+    stderr_return = launchCommand(ffmpeg_segmenter_command_line, environ)
+    if len(stderr_return) != 0:
+	raise DispatchError('ffmpeg exit with non 0 return code, error: %s' % (stderr_return))
+
+
+    #   Esto comprueba que se haya generado el archivo esperado
+    if not path.isfile(dst_path + destination_playlist_name):
+	raise DispatchError('Unable to found temporal filename: %s, check Report: %s for more information' % (isfile(dst_path + destination_playlist_name),
+													      segment_report_name))
+
+    try:
+	unlink(tmp_path + destination_temporal_name)
+	logging.info('dispatchTranscode(): Delete: %s' % tmp_path + destination_temporal_name )
+    except:
+	logging.error('dispatchTranscode(): Unable to detele: %s' % tmp_path + destination_temporal_name )
 
     return destination_playlist_name
 
@@ -343,7 +386,7 @@ def ElementoMain():
     
     # Registra el manejador de la senial SIGCHLD
     signal(SIGCHLD, workerDie)
-
+    
 
     logging.basicConfig(format   = '%(asctime)s - elemento.py -[%(levelname)s]: %(message)s', 
 			filename = LOG_FILE,

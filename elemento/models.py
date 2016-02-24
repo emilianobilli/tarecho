@@ -34,9 +34,10 @@ class Config(models.Model):
     workers	      = models.IntegerField(default=2, help_text="Max number of simultaneous Workers")
     temporal_path     = models.CharField(max_length=255, help_text="Path to temporal destination Files")
     output_basepath   = models.CharField(max_length=255, help_text="Output Basepath")
-    delete_on_success = models.CharField(max_length=1, choices=YES_NO, help_text="Automatic delete after transcode")
+    delete_on_success = models.CharField(max_length=1, choices=YES_NO, help_text="Automatic delete after transcode -- Not Available YET")
     report_loglevel   = models.CharField(max_length=2, choices=LOG_LEVEL, help_text="ffmpeg log level")
     ffmpeg_bin	      = models.CharField(max_length=255, help_text="ffmpeg executable")
+    advanced_options  = models.CharField(max_length=255, default='-loglevel error -y', help_text="Advanced ffmpeg options for particular implementations")
 
     def __unicode__(self):
 	return str(self.date)
@@ -63,10 +64,16 @@ class H264Preset(models.Model):
 	('4.1','4.1'),
 	('4.2','4.2'),
     )
+    PIX_FMT = (
+       ('yuv420p', 'yuv420p'),
+       ('yuv422p', 'yuv422p'),
+    )
+
     name		= models.CharField(max_length=50, help_text="Name of the Preset")
     format		= models.ForeignKey(Format)
     suffix		= models.CharField(max_length=50, help_text="Text between basename and extension")
     video_codec		= models.CharField(max_length=20, choices=H264,  help_text="Video Library")
+    pixel_format        = models.CharField(max_length=20, choices=PIX_FMT,default='yuv420p',  help_text="Pixel Format")
     resolution		= models.CharField(max_length=20, help_text="Video Resolution: WxH")
     framerate		= models.CharField(max_length=5,  help_text="Video Frame Rate")
     video_bitrate	= models.CharField(max_length=50, help_text="Video Bit Rate expressed in Kbps")
@@ -88,18 +95,20 @@ class H264Preset(models.Model):
 
 
     def ffmpeg_video (self):
-	return  '-s %s -c:v %s -crf %s -g %s -refs %s -b:v %sk -minrate %sk -maxrate %sk -bufsize %sk -profile:v %s -level %s -r %s' % (self.resolution,
-																     self.video_codec,
-																     self.crf,
-																     self.gop_size,
-																     self.reference_frames,
-																     self.video_bitrate,
-																     self.video_bitrate,
-																     self.video_bitrate,
-																     self.buffer_size,
-																     self.profile,
-	     														             self.level, 
-																     self.framerate)   
+        return  '-s %s -c:v %s -pix_fmt %s -crf %s -g %s -refs %s -b:v %sk -minrate %sk -maxrate %sk -bufsize %sk -profile:v %s -level %s -r %s' % (self.resolution,
+                                                                                                                                                    self.video_codec,
+                                                                                                                                                    self.pixel_format,
+                                                                                                                                                    self.crf,
+                                                                                                                                                    self.gop_size,
+                                                                                                                                                    self.reference_frames,
+                                                                                                                                                    self.video_bitrate,
+                                                                                                                                                    self.video_bitrate,
+                                                                                                                                                    self.video_bitrate,
+                                                                                                                                                    self.buffer_size,
+                                                                                                                                                    self.profile,
+                                                                                                                                                    self.level,
+                                                                                                                                                    self.framerate)
+
     def ffmpeg_format(self):
 	return '-f %s' % (self.format.name)
 
