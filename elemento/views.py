@@ -13,6 +13,11 @@ http_POST_OK    = 201
 http_REQUEST_OK = 200
 http_NOT_FOUND  = 404
 
+def view_AdminRedirect(request):
+    ret = HttpResponse('', status=301)
+    ret['Location'] = 'admin/'
+    return ret
+
 
 def view_GetPostJob(request):
 

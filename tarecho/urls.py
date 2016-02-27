@@ -25,6 +25,7 @@ from elemento import views
 admin.site.site_header = 'TaReCho'
 
 urlpatterns = [
+    url(r'^$', views.view_AdminRedirect),
     url(r'^admin/', admin.site.urls),
     url(r'^elemento/api/job/$', views.view_GetPostJob),
     url(r'^elemento/api/job/(?P<id>\d+)/$', views.view_GetJobId),
