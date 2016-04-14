@@ -177,21 +177,3 @@ class elmJob(object):
 	    return self.id
 	else:
 	    raise elmError('Job have an id: %s. Imposible start a Job with ID' % str(self.id))
-
-
-elm = elmServer('54.173.2.137','8000')
-
-job = elmJob(elm)
-job.input_filename = 'PB005828-KILL-BILL_A-XXX-PARODY-PART_2-XX.5_PV02_SSPA.mpg'
-job.hls_preset_id  = 2
-job.input_path     = '/mnt/www/zolecha/cdnplayboy/'
-job.basename	   = 'kill_bill'
-job.system_path	   = True
-job.output_path    = '0005/hls/'
-job.name	   = 'cesar2'
-job.start()
-print job.status()
-print job.files()
-
-
-

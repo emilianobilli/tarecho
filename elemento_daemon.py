@@ -121,6 +121,8 @@ def getScheduleableJob(config):
     max_workers    = config.workers
     active_workers = len(Job.objects.filter(status='P'))
 
+    jobs = []
+
     if max_workers - active_workers >= 1:
 	jobs = Job.objects.filter(status='Q').order_by('-priority')
 
