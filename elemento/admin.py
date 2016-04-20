@@ -20,6 +20,7 @@ class FormatAdmin(admin.ModelAdmin):
 @admin.register(models.Job)
 class JobAdmin(admin.ModelAdmin):
     list_display = [ 'id', 'priority', 'name', 'worker_pid', 'input_filename', 'status', 'progress', 'message' ]
+    search_fields = ['name']
 
 @admin.register(models.Config)
 class ConfigAdmin(admin.ModelAdmin):
