@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'elemento.apps.ElementoConfig',
+    'elmcafiolo.apps.ElmcafioloConfig',
 ]
 
 MIDDLEWARE_CLASSES = [

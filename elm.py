@@ -22,10 +22,20 @@ class elmError(Exception):
 
 class elmServer(object):
     def __init__(self, server = '', port = ''):
-        self.server     = server
-        self.baseuri    = 'http://%s:%s' % (self.server, port)
-        self.baseapi    = '/elemento/api'
-
+        self.server     	= server
+        self.baseuri    	= 'http://%s:%s' % (self.server, port)
+        self.baseapi    	= '/elemento/api'
+    
+	if self.server is not None:
+	    self.__load()
+	else:
+	    self.__workers			= None
+	    self.__temporal_path		= None
+	    self.__output_basepath		= None
+	    self.__delete_on_success	= None
+	    self.__report_loglevel		= None
+	    self.__ffmpeg_bin		= None
+	    self.__advanced_options		= None
 
     def get(self, url):
         method  = 'GET'
@@ -41,7 +51,7 @@ class elmServer(object):
         try:
             response, content = h.request(uri.geturl(), method, body)
         except socket.error as err:
-            raise ElementoError(err)
+            raise elmError(err)
 
         if response['status'] == '200':
             return content
@@ -77,7 +87,36 @@ class elmServer(object):
         #    raise ElementalError(error)
 
         #return ret
+	
+    def __load(self):
+	data = self.get('/config/')
+	jsonData = json.loads(data)
+	self.__workers			= jsonData['config']['workers']
+	self.__temporal_path		= jsonData['config']['temporal_path']
+	self.__output_basepath		= jsonData['config']['output_basepath']
+	self.__delete_on_success	= jsonData['config']['delete_on_success']
+	self.__report_loglevel		= jsonData['config']['report_loglevel']
+	self.__ffmpeg_bin		= jsonData['config']['ffmpeg_bin']
+	self.__advanced_options		= jsonData['config']['advanced_options']
 
+    def workers(self):
+	if self.server is not None:
+	    self.__load()
+	    return self.__workers
+
+
+    def preset(self, name):
+	method = 'GET'
+	body   = ''
+
+	data = self.get('/preset/%s/' % name)
+	if data is not None:
+	    jsonData = json.loads(data)
+	    id = jsonData['preset']['id']
+	    type = jsonData['preset']['type']
+	    return id, type
+	
+	return None, None
 
 class elmJob(object):
     def __init__(self, server, jobId = None):
@@ -93,6 +132,7 @@ class elmJob(object):
 	    self.name = None
 	    self.basename= None
 	    self.hls_preset_id = None
+	    self.h264_preset_id = None
 	    self.priority = 9
 	    self.output_path = None
 	    self.system_path = False
@@ -109,12 +149,15 @@ class elmJob(object):
 	self.name 		= jsonData['job']['name']
 	self.basename 		= jsonData['job']['basename']
 	self.hls_preset_id 	= jsonData['job']['hls_preset_id']	
+	self.h264_preset_id	= jsonData['job']['h264_preset_id']
 	self.priority 		= jsonData['job']['priority']
 	self.output_path 	= jsonData['job']['output_path']
 	self.system_path 	= jsonData['job']['system_path']
 	self.__progress		= jsonData['job']['progress']
 	self.__message 		= jsonData['job']['message']
 	self.worker_pid		= jsonData['job']['worker_pid']
+
+    
 
     def files(self):
 	returnFiles = []
@@ -156,10 +199,11 @@ class elmJob(object):
 		raise elmError('output_path can not be None')
 	    if self.name is None:
 		raise elmError('name can not be None')
-	    if self.hls_preset_id is None:
-		raise elmError('hls_preset can not be None')
-	    job = {'job' :
-			{
+	    if self.hls_preset_id is None and self.h264_preset_id is None:
+		raise elmError('hls_preset or h264_preset can not be None')
+	    if self.hls_preset_id is not None:
+    		job = {'job' :
+		    	{
 			'name': self.name,
 			'hls_preset_id': self.hls_preset_id,
 			'input_filename': self.input_filename,
@@ -169,7 +213,21 @@ class elmJob(object):
 			'output_path': self.output_path,
 			'priority': self.priority
 			}
-		  }
+		       }
+	    else:
+		job = {'job' :
+		    	{
+			'name': self.name,
+			'h264_preset_id': self.h264_preset_id,
+			'input_filename': self.input_filename,
+			'input_path': self.input_path,
+			'basename': self.basename,
+			'system_path': self.system_path,
+			'output_path': self.output_path,
+			'priority': self.priority
+			}
+		       }
+
 	    response = self.server.post('/job/', job)
 	    responseJson = json.loads(response)
 	    self.id = responseJson['job']['id']

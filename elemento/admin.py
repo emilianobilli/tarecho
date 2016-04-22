@@ -11,7 +11,7 @@ class HLSPresetAdmin(admin.ModelAdmin):
 
 @admin.register(models.H264Preset)
 class H264PresetAdmin(admin.ModelAdmin):
-    list_display = ['name', 'resolution', 'video_bitrate', 'audio_bitrate', 'level', 'profile' ]
+    list_display = ['id', 'name', 'resolution', 'video_bitrate', 'audio_bitrate', 'level', 'profile' ]
 
 @admin.register(models.Format)
 class FormatAdmin(admin.ModelAdmin):

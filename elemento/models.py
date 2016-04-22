@@ -10,8 +10,9 @@ from datetime import datetime
 
 class Format(models.Model):
     name	     = models.CharField(max_length=50, help_text="Name of the format")
+    parameters	     = models.CharField(max_length=255, blank = True, help_text="Optional parameters")
     extension	     = models.CharField(max_length=5, help_text="Extension of the result file")
-
+    
     def __unicode__(self):
 	return self.name
 
@@ -108,9 +109,13 @@ class H264Preset(models.Model):
                                                                                                                                                     self.profile,
                                                                                                                                                     self.level,
                                                                                                                                                     self.framerate)
+    
 
     def ffmpeg_format(self):
-	return '-f %s' % (self.format.name)
+	if self.format.parameters == None or self.format.parameters == '':
+	    return '-f %s' % (self.format.name)
+	else:
+	    return '%s -f %s' % (self.format.parameters, self.format.name)
 
 
     def filename(self, output_basename):
@@ -190,7 +195,8 @@ class Job(models.Model):
 #    start_time	      = models.DateTimeField(blank=True)
 #    end_time          = models.DateTimeField(blank=True)
     worker_pid	      = models.IntegerField(default=-1)	
-    hls_preset	      = models.ForeignKey(HLSPreset)
+    hls_preset	      = models.ForeignKey(HLSPreset, blank = True, null = True)
+    h264_preset	      = models.ForeignKey(H264Preset, blank = True, null = True)
     input_filename    = models.CharField(max_length=255, help_text="Input File")
     input_path	      = models.CharField(max_length=255, help_text="Input Path")
     basename	      = models.CharField(max_length=100, help_text="Destination Basename")

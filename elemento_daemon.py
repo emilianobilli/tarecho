@@ -2,6 +2,7 @@
 # Stand Alone Script
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 import os
+import shutil
 import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tarecho.settings")
 django.setup()
@@ -213,11 +214,16 @@ def jobWorker (ffmpeg, tmp_path, job, report_log_level, advanced_options):
 	exit(0)
     #
     # Trae la lista completa de perfiles de transcodificacion
-    h264_preset_list = hls_preset.h264_presets.all()
+    if hls_preset is None:
+	h264_preset_list = []
+	h264_preset_list.append(job.h264_preset)
+	m3u8_playlist = None
+    else:    
+        h264_preset_list = hls_preset.h264_presets.all()
 
-    # 
-    # Crea el root playlist
-    m3u8_playlist = M3U8(hls_preset.playlist_root(basename))
+	# 
+	# Crea el root playlist
+	m3u8_playlist = M3U8(hls_preset.playlist_root(basename))
 
 
     for h264_preset in h264_preset_list:
@@ -240,7 +246,10 @@ def jobWorker (ffmpeg, tmp_path, job, report_log_level, advanced_options):
 
 	# TODO: Falta scanear y agregar los archivos    
 	try:
-	    files = M3U8GetFiles(output_path+playlist)
+	    if hls_preset is not None:
+	        files = M3U8GetFiles(output_path+playlist)
+	    else:
+		files = []
 	except M3U8Error as e:
 	    job.status = 'E'
 	    job.message = 'Error getting files from playlist [ %s%s ]: %s' % (output_path, playlist, e)
@@ -261,25 +270,28 @@ def jobWorker (ffmpeg, tmp_path, job, report_log_level, advanced_options):
 	    NewFile.save()
 	#
 	# Add Rendition to root Playlist
-	bit_rate = int(h264_preset.video_bitrate) + int(h264_preset.audio_bitrate)
-	m3u8_playlist.addRendition(h264_preset.profile, h264_preset.level, bit_rate, h264_preset.resolution, playlist)
+	if hls_preset is not None:
+	    bit_rate = int(h264_preset.video_bitrate) + int(h264_preset.audio_bitrate)
+	    m3u8_playlist.addRendition(h264_preset.profile, h264_preset.level, bit_rate, h264_preset.resolution, playlist)
+	
 
     #
     # Graba el Root Playlist
-    try:
-	m3u8_playlist.save(output_path)
-    except M3U8Error as e:
-	job.status  = 'E'
-	job.message = str(e)
-	job.save()
-	exit(0)
+    if hls_preset is not None:
+        try:
+	    m3u8_playlist.save(output_path)
+	except M3U8Error as e:
+	    job.status  = 'E'
+	    job.message = str(e)
+	    job.save()
+	    exit(0)
 	
     # TODO: Agregar el root playlist
-    NewFile = OutputFile()
-    NewFile.job  = job
-    NewFile.path = output_path 
-    NewFile.filename = hls_preset.playlist_root(basename)
-    NewFile.save()
+        NewFile = OutputFile()
+	NewFile.job  = job
+	NewFile.path = output_path 
+	NewFile.filename = hls_preset.playlist_root(basename)
+	NewFile.save()
 
     job.status = 'D'
     job.save()
@@ -304,7 +316,8 @@ def dispatchTranscode (ffmpeg, input_file, dst_path, dst_basename, tmp_path, hls
     logging.info('dispatchTranscode(): Input: %s' % input_file)
     logging.info('dispatchTranscode(): Path: %s'  % dst_path)
     logging.info('dispatchTranscode(): Basename: %s' % dst_basename) 
-    logging.info('dispatchTranscode(): HLS Preset: %s' % hls_preset)
+    if hls_preset is not None:
+	logging.info('dispatchTranscode(): HLS Preset: %s' % hls_preset)
     logging.info('dispatchTranscode(): H264 Preset: %s' % h264_preset)
  
 
@@ -322,11 +335,17 @@ def dispatchTranscode (ffmpeg, input_file, dst_path, dst_basename, tmp_path, hls
 	input_file = '"' + input_file + '"'
 
     #   Se arma la linea de comando para ejecutar
-    ffmpeg_transcode_command_line = '%s %s -i %s %s %s' % (ffmpeg,
-							   advanced_options,
-					                   input_file,
-					            	   hls_preset.ffmpeg_segmenter_options(),
-					                   h264_preset.ffmpeg_params(tmp_path, dst_basename))
+    if hls_preset is not None:
+	ffmpeg_transcode_command_line = '%s %s -i %s %s %s' % (ffmpeg,
+	    						       advanced_options,
+					                       input_file,
+					            	       hls_preset.ffmpeg_segmenter_options(),
+					                       h264_preset.ffmpeg_params(tmp_path, dst_basename))
+    else:
+	ffmpeg_transcode_command_line = '%s %s -i %s %s' % (ffmpeg,
+	    						    advanced_options,
+					                    input_file,
+					            	    h264_preset.ffmpeg_params(tmp_path, dst_basename))
 
     
     #   Construye el log
@@ -347,26 +366,29 @@ def dispatchTranscode (ffmpeg, input_file, dst_path, dst_basename, tmp_path, hls
     
 
 
+    if hls_preset is not None:
+        #   Nombre de destino del playlist
+	destination_playlist_name = hls_preset.playlist_filename(h264_preset, dst_basename)
 
-    #   Nombre de destino del playlist
-    destination_playlist_name = hls_preset.playlist_filename(h264_preset, dst_basename)
+	segment_report_name = destination_playlist_name + '.log'
 
-    segment_report_name = destination_playlist_name + '.log'
+	environ = { 'FFREPORT': 'file=%s%s:level=%s' % (REPORT_DIR, segment_report_name, report_log_level) }
 
-    environ = { 'FFREPORT': 'file=%s%s:level=%s' % (REPORT_DIR, segment_report_name, report_log_level) }
-
-    ffmpeg_segmenter_command_line = '%s %s -i %s %s' % (ffmpeg,
-							advanced_options,
-						        tmp_path + destination_temporal_name,
-						        hls_preset.ffmpeg_params(dst_path, dst_basename, h264_preset))
+	ffmpeg_segmenter_command_line = '%s %s -i %s %s' % (ffmpeg,
+	 						    advanced_options,
+						    	    tmp_path + destination_temporal_name,
+						    	    hls_preset.ffmpeg_params(dst_path, dst_basename, h264_preset))
 
 
-    logging.info('dispatchTranscode(): Command Line: %s' % ffmpeg_segmenter_command_line)  
+        logging.info('dispatchTranscode(): Command Line: %s' % ffmpeg_segmenter_command_line)  
 
-    stderr_return = launchCommand(ffmpeg_segmenter_command_line, environ)
-    if len(stderr_return) != 0:
-	raise DispatchError('ffmpeg exit with non 0 return code, error: %s' % (stderr_return))
+	stderr_return = launchCommand(ffmpeg_segmenter_command_line, environ)
+	if len(stderr_return) != 0:
+	    raise DispatchError('ffmpeg exit with non 0 return code, error: %s' % (stderr_return))
 
+    else:
+	destination_playlist_name = dst_basename + '.' + h264_preset.format.extension
+	shutil.copy (tmp_path + destination_temporal_name, dst_path + destination_playlist_name)
 
     #   Esto comprueba que se haya generado el archivo esperado
     if not path.isfile(dst_path + destination_playlist_name):
