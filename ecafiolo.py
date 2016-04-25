@@ -71,6 +71,10 @@ class elmCafioloServer(object):
 	
         if response['status'] == '201':
 	    return content
+	
+	if response['status'] == '404':
+	    jsonData = json.loads(content)
+	    raise elmCafioloError(jsonData['message'])
 
 
 class elmCafioloJob(object):
@@ -166,6 +170,7 @@ class elmCafioloJob(object):
                    }
 
             response = self.server.post('/job/', job)
+	    print response
 	    responseJson = json.loads(response)
             self.id = responseJson['job']['id']
             self.__load()

@@ -51,8 +51,10 @@ def elmcafiolo_PostJob(request):
 
     try:
 	preset = Preset.objects.get(name=jsonData['job']['preset'])
-    except:
-	pass
+    except ObjectDoesNotExist:
+        status = http_NOT_FOUND
+        return HttpResponse(json.dumps({'message': 'Preset not found'}), status=status, content_type='application/json')
+
     job = Job()
     job.name               = jsonData['job']['name']
     job.input_filename     = jsonData['job']['input_filename']
@@ -81,6 +83,7 @@ def elmcafiolo_GetJobId(request, id):
     except ObjectDoesNotExist:
         status = http_NOT_FOUND
         return HttpResponse(json.dumps({}), status=status, content_type='application/json')
+
     if job.transcoder is None:
 	transcoder = ''
     else:
