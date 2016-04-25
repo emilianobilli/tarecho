@@ -59,11 +59,14 @@ def getTranscodersSlots():
 
 def getBestTranscoder():
     enabledList = Transcoder.objects.filter(enabled = True)
-    bestTranscoder = None
+    bestTrans = None
+    bestTransFreeSlots = 0
     for trans in enabledList:
 	activeJobs = len(Job.objects.filter(transcoder = trans, status ='P'))
-	if trans.slots - activeJobs > 0:
-	    bestTranscoder = trans
+	freeSlots = trans.slots - activeJobs
+	if freeSlots > bestTransFreeSlots:
+	    bestTransFreeSlots = freeSlots
+	    bestTrans = trans
     return bestTranscoder
 
 

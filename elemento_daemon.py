@@ -155,18 +155,18 @@ def forkWorker(job=None,config=None):
 	    output_path = base + '/' + path
 	else:
 	    output_path = base + path
-
-	try:
-	    _mkdir_recursive(output_path)
-	except OSError as e:
-	    logging.error('forkWorker(): Unable to create output_path: %s' % output_path)
-	    job.status  = 'E'
-	    job.message = 'forkWorker(): Unable to create output_path: %s' % output_path
-	    job.save()
-	    return False
-
     else:
 	output_path = job.output_path
+
+    try:
+        _mkdir_recursive(output_path)
+    except OSError as e:
+        logging.error('forkWorker(): Unable to create output_path: %s' % output_path)
+        job.status  = 'E'
+        job.message = 'forkWorker(): Unable to create output_path: %s' % output_path
+        job.save()
+        return False
+
 
     job.output_path = output_path
     job.status = 'P'

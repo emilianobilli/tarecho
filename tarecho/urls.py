@@ -45,7 +45,6 @@ if 'elemento.apps.ElementoConfig' in settings.INSTALLED_APPS:
     ELEMENTO = True
 
 if 'elmcafiolo.apps.ElmcafioloConfig' in settings.INSTALLED_APPS:
-    print "PUTO"
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ElemCafiolo
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -69,14 +68,14 @@ urlpatterns = [
     url(r'^admin/', admin.site.urls)
 ]
 
-elemento_patterns = [  
-    url(r'^elemento/api/job/$', elemento_GetPostJob),
-    url(r'^elemento/api/job/(?P<id>\d+)/$', elemento_GetJobId),
-    url(r'^elemento/api/job/(?P<id>\d+)/outputfile/$', elemento_GetJobIdOutputFile),
-    url(r'^elemento/api/config/$', elemento_GetConfig),
-    url(r'^elemento/api/preset/(?P<name>.+)/$', elemento_GetPresetName),
-    url(r'^elemento/api/formats/$', elemento_GetFormats)
-]
+#elemento_patterns = [  
+#    url(r'^elemento/api/job/$', elemento_GetPostJob),
+#    url(r'^elemento/api/job/(?P<id>\d+)/$', elemento_GetJobId),
+#    url(r'^elemento/api/job/(?P<id>\d+)/outputfile/$', elemento_GetJobIdOutputFile),
+#    url(r'^elemento/api/config/$', elemento_GetConfig),
+#    url(r'^elemento/api/preset/(?P<name>.+)/$', elemento_GetPresetName),
+#    url(r'^elemento/api/formats/$', elemento_GetFormats)
+#]
 
 
 

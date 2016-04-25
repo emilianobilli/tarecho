@@ -27,7 +27,7 @@ def elmcafiolo_GetPostJob(request):
 
     if request.method == 'POST':
         return elmcafiolo_PostJob(request)
-
+	
 
 def elmcafiolo_GetJob(request):
 
@@ -47,18 +47,20 @@ def elmcafiolo_GetJob(request):
 
 
 def elmcafiolo_PostJob(request):
-
     jsonData = json.loads(request.body)
 
+    try:
+	preset = Preset.objects.get(name=jsonData['job']['preset'])
+    except:
+	pass
     job = Job()
     job.name               = jsonData['job']['name']
     job.input_filename     = jsonData['job']['input_filename']
     job.input_path         = jsonData['job']['input_path']
     job.basename           = jsonData['job']['basename']
-    job.preset		   = jsonData['job']['preset']
+    job.preset		   = preset
     job.priority           = jsonData['job']['priority']
     job.output_path        = jsonData['job']['output_path']
-    job.system_path        = jsonData['job']['system_path']
     job.status             = 'Q' # Queue
 
     job.save()
@@ -79,6 +81,10 @@ def elmcafiolo_GetJobId(request, id):
     except ObjectDoesNotExist:
         status = http_NOT_FOUND
         return HttpResponse(json.dumps({}), status=status, content_type='application/json')
+    if job.transcoder is None:
+	transcoder = ''
+    else:
+	transcoder = job.transcoder.name
 
     response = { "job" :
                         {
@@ -87,7 +93,7 @@ def elmcafiolo_GetJobId(request, id):
                             "preset": job.preset.name,
                             "input_filename":job.input_filename ,
                             "input_path": job.input_path ,
-			    "transcoder": job.transcoder.name,
+			    "transcoder": transcoder,
                             "basename": job.basename,
                             "output_path": job.output_path,
                             "priority": job.priority ,
@@ -110,16 +116,17 @@ def elmcafiolo_GetJobIdOutputFile(request, id):
     except ObjectDoesNotExist:
         status = http_NOT_FOUND
         return HttpResponse(json.dumps({}), status=status, content_type='application/json')
-
-
-    server = elm.elmServer(job.transcoder.ip, job.transcoder.port)
-    jobElm = elm.elmJob(server, job.job_id)
     
     oflst = []
-    file_list = jobElm.files()
+    if job.transcoder is not None:
+	server = elm.elmServer(job.transcoder.ip, job.transcoder.port)
+	jobElm = elm.elmJob(server, job.job_id)
+    
+    
+	file_list = jobElm.files()
 
-    for output_file in file_list:
-        oflst.append({"path": output_file['path'], "filename": output_file['filename']})
+	for output_file in file_list:
+    	    oflst.append({"path": output_file['path'], "filename": output_file['filename']})
 
 
     response = {"job":

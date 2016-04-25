@@ -16,3 +16,4 @@ class TranscoderAdmin(admin.ModelAdmin):
 @admin.register(models.Job)
 class JobAdmin(admin.ModelAdmin):
     list_display = ['id', 'name', 'preset', 'job_id', 'transcoder', 'status', 'message']
+    search_fields = ['name']
