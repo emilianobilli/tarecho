@@ -170,7 +170,6 @@ class elmCafioloJob(object):
                    }
 
             response = self.server.post('/job/', job)
-	    print response
 	    responseJson = json.loads(response)
             self.id = responseJson['job']['id']
             self.__load()

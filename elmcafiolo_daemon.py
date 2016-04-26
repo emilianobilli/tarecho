@@ -63,7 +63,7 @@ def getBestTranscoder():
     bestTrans = None
     bestTransFreeSlots = 0
     for trans in enabledList:
-	activeJobs = len(Job.objects.filter(transcoder = trans, status ='P'))
+	activeJobs = len(Job.objects.filter(transcoder = trans).filter(Q(status = 'Q') | Q(status = 'P')))
 	freeSlots = trans.slots - activeJobs
 	if freeSlots > bestTransFreeSlots:
 	    bestTransFreeSlots = freeSlots
@@ -74,7 +74,7 @@ def getBestTranscoder():
 
 def getScheduleableJob():
     max_slots = getTranscodersSlots()
-    used_slots = len(Job.objects.filter(status = 'P'))
+    used_slots = len(Job.objects.filter(Q(status = 'Q') | Q(status = 'P')))
 
     jobs = []    
 
@@ -176,7 +176,6 @@ def elmCafioloMain():
 	    job = getScheduleableJob()
 
 	job_list = Job.objects.filter(Q(status = 'Q') | Q(status = 'P'))
-	print job_list
 	for job in job_list:
 	    updateJobStatus(job)
 
