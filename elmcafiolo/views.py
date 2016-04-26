@@ -63,7 +63,7 @@ def elmcafiolo_PostJob(request):
     job.preset		   = preset
     job.priority           = jsonData['job']['priority']
     job.output_path        = jsonData['job']['output_path']
-    job.status             = 'Q' # Queue
+    job.status             = 'U' # Unassigned
 
     job.save()
 

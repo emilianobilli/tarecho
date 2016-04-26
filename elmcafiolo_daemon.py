@@ -1,3 +1,4 @@
+from django.db.models import Q
 import django
 import os
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tarecho.settings")
@@ -78,7 +79,7 @@ def getScheduleableJob():
     jobs = []    
 
     if max_slots - used_slots > 0:
-	jobs = Job.objects.filter(status='Q').order_by('-priority')
+	jobs = Job.objects.filter(status='U').order_by('-priority')
 
     if len(jobs) > 0:
 	return jobs[0]
@@ -122,10 +123,10 @@ def startJob(job, transcoder):
     try:
 	job.job_id = jobElm.start()
 	job.transcoder = transcoder
-	job.status = 'P'
+	job.status = 'Q'
 	job.save()
     except elmError as e:
-	# agregar logueo
+	job.message = 'Could not send job to transcoder ' + transcoder
 	transcoder.enabled = False
 	transcoder.save()
 	return None
@@ -138,15 +139,17 @@ def updateJobStatus(job):
     try:
 	elm = elmServer(job.transcoder.ip, job.transcoder.port)
     except elmError as e:
-	# loguear error
-	pass
+	job.status = 'E'
+	job.message = 'Transcoder ' + transcoder + 'unavailable'
+	job.save()
+	transcoder.enabled = False
+	transcoder.save()
     
     jobElm = elmJob(elm, job.job_id)
     jobStatus = jobElm.status()
-    if jobStatus == 'D' or jobStatus == 'E': 
-	job.status  = jobStatus
-	job.message = jobElm.message()
-	job.save()
+    job.status  = jobStatus
+    job.message = jobElm.message()
+    job.save()
 
 
 
@@ -172,12 +175,12 @@ def elmCafioloMain():
 		break
 	    job = getScheduleableJob()
 
-	job_list = Job.objects.filter(status = 'P')
-
+	job_list = Job.objects.filter(Q(status = 'Q') | Q(status = 'P'))
+	print job_list
 	for job in job_list:
 	    updateJobStatus(job)
 
-	time.sleep(60)
+	time.sleep(30)
 
 
 

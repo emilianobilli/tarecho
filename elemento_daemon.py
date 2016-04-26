@@ -454,7 +454,7 @@ def ElementoMain():
 	    
 	    job = getScheduleableJob(config) 
 
-	time.sleep(300)
+	time.sleep(30)
   
 
 

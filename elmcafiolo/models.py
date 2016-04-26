@@ -28,6 +28,7 @@ class Transcoder(models.Model):
 
 class Job(models.Model):
     STATUS = (
+	('U', 'Unassigned'),
         ('Q', 'Queued'),
         ('P', 'Processing'),
         ('D', 'Done'),
@@ -42,7 +43,7 @@ class Job(models.Model):
     priority          	= models.CharField(max_length=1, default='5', help_text="0: Max priority, 9: Min Priority")
     job_id		= models.IntegerField(blank=True, null=True, help_text="Transcoder job ID")
     transcoder		= models.ForeignKey(Transcoder, blank=True, null=True)
-    status		= models.CharField(max_length=1, choices=STATUS, default='D', help_text="Job Status")
+    status		= models.CharField(max_length=1, choices=STATUS, default='U', help_text="Job Status")
     progress          	= models.IntegerField(default=0, help_text="Job Progress")
     speed		= models.CharField(max_length=10, blank=True)
     message           	= models.CharField(max_length=510, blank=True,  help_text="Error or Warning message")
