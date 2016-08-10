@@ -23,6 +23,7 @@ import settings
 
 ELEMENTO   = False
 ELMCAFIOLO = False
+IMEN       = False
 
 if 'elemento.apps.ElementoConfig' in settings.INSTALLED_APPS:
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -35,7 +36,7 @@ if 'elemento.apps.ElementoConfig' in settings.INSTALLED_APPS:
     from elemento.views import elemento_GetPresetName
     from elemento.views import elemento_GetFormats
     elemento_patterns = [  
-	url(r'^elemento/api/job/$', elemento_GetPostJob),
+	    url(r'^elemento/api/job/$', elemento_GetPostJob),
         url(r'^elemento/api/job/(?P<id>\d+)/$', elemento_GetJobId),
         url(r'^elemento/api/job/(?P<id>\d+)/outputfile/$', elemento_GetJobIdOutputFile),
         url(r'^elemento/api/config/$', elemento_GetConfig),
@@ -52,11 +53,24 @@ if 'elmcafiolo.apps.ElmcafioloConfig' in settings.INSTALLED_APPS:
     from elmcafiolo.views import elmcafiolo_GetJobId
     from elmcafiolo.views import elmcafiolo_GetJobIdOutputFile
     elmcafiolo_patterns = [
-	url(r'^elmcafiolo/api/job/$', elmcafiolo_GetPostJob),
+	    url(r'^elmcafiolo/api/job/$', elmcafiolo_GetPostJob),
         url(r'^elmcafiolo/api/job/(?P<id>\d+)/$', elmcafiolo_GetJobId),
         url(r'^elmcafiolo/api/job/(?P<id>\d+)/outputfile/$', elmcafiolo_GetJobIdOutputFile)
     ]
     ELMCAFIOLO = True
+
+if 'imen.apps.ImenConfig' in settings.INSTALLED_APPS:
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Imen
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    from imen.views import imen_GetPostJob
+    from imen.views import imen_GetJobId
+    imen_patterns = [
+	    url(r'^imen/api/job/$', imen_GetPostJob),
+        url(r'^imen/api/job/(?P<id>\d+)/$', imen_GetJobId)
+    ]
+    IMEN = True
+
 
 import views
 
@@ -77,10 +91,11 @@ urlpatterns = [
 #    url(r'^elemento/api/formats/$', elemento_GetFormats)
 #]
 
-
-
 if ELEMENTO is True:
     urlpatterns = urlpatterns + elemento_patterns
 
 if ELMCAFIOLO is True:
     urlpatterns = urlpatterns + elmcafiolo_patterns
+
+if IMEN is True:
+    urlpatterns = urlpatterns + imen_patterns

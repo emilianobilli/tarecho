@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'elemento.apps.ElementoConfig',
     'elmcafiolo.apps.ElmcafioloConfig',
+    'imen.apps.ImenConfig',
 ]
 
 MIDDLEWARE_CLASSES = [
