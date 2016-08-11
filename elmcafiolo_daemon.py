@@ -10,6 +10,11 @@ django.setup()
 from elm import *
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Imen
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+from imen_api import *
+
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # App Model
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 from elmcafiolo.models import Preset
@@ -33,6 +38,8 @@ LOG_FILE = './log/elmcafiolo.log'
 ERR_FILE = './log/elmcafiolo.err'
 PID_FILE = './pid/elmcafiolo.pid'
 
+ELEMENTO_TYPE = 'ELO'
+IMEN_TYPE = 'IME'
 
 
 
@@ -50,12 +57,12 @@ def initTranscoders():
             logging.error('elmServer(): Error %s' % e)
 
 
-def getTranscodersSlots():
-    enabledList = Transcoder.objects.filter(enabled = True)
-    slots = 0
-    for trans in enabledList:
-        slots = slots + trans.slots
-    return slots 
+#def getTranscodersSlots():
+#    enabledList = Transcoder.objects.filter(enabled = True)
+#    slots = 0
+#    for trans in enabledList:
+#        slots = slots + trans.slots
+#    return slots
 
 
 def getBestTranscoder(preset):
@@ -69,9 +76,11 @@ def getBestTranscoder(preset):
 
     bestTrans = None
     bestTransFreeSlots = 0
+    type = preset.type
+
 
     for trans in transList:
-        activeJobs = len(Job.objects.filter(transcoder = trans).filter(Q(status = 'Q') | Q(status = 'P')))
+        activeJobs = len(Job.objects.filter(transcoder = trans).filter(Q(status = 'Q') | Q(status = 'P')).filter(type = type))
         freeSlots = trans.slots - activeJobs
         if freeSlots > bestTransFreeSlots:
             bestTransFreeSlots = freeSlots
@@ -82,20 +91,30 @@ def getBestTranscoder(preset):
 
 
 def getScheduleableJob():
-    max_slots = getTranscodersSlots()
-    used_slots = len(Job.objects.filter(Q(status = 'Q') | Q(status = 'P')))
+    #max_slots = getTranscodersSlots()
+    #used_slots = len(Job.objects.filter(Q(status = 'Q') | Q(status = 'P')))
 
-    jobs = []    
+    #jobs = []
 
-    if max_slots - used_slots > 0:
-        jobs = Job.objects.filter(status='U').order_by('-priority')
+    jobs = Job.objects.filter(status='U').order_by('-priority')
+    for job in jobs:
+        transcoder = getBestTranscoder(job.preset)
+        if transcoder is not None:
+            job.transcoder = transcoder
+            job.save()
+            return job
 
-    if len(jobs) > 0:
-        return jobs[0]
+
+    #if max_slots - used_slots > 0:
+    #   jobs = Job.objects.filter(status='U').order_by('-priority')
+
+    #if len(jobs) > 0:
+    #   return jobs[0]
 
 
 
-def startJob(job, transcoder):
+def startElmJob(job):
+    transcoder = job.transcoder
     try:
         elm = elmServer(transcoder.ip, transcoder.port)
         presetId, presetType = elm.preset(job.preset.name)
@@ -131,7 +150,6 @@ def startJob(job, transcoder):
 
     try:
         job.job_id = jobElm.start()
-        job.transcoder = transcoder
         job.status = 'Q'
         job.save()
     except elmError as e:
@@ -142,8 +160,38 @@ def startJob(job, transcoder):
 
     return job.job_id
     
+def startImenJob(job):
+    transcoder = job.transcoder
+    try:
+        imen = imenServer(transcoder.ip, transcoder.port)
+    except imenError as e:
+        transcoder.enable   = False
+        transcoder.message  = e
+        transcoder.save()
+        # agregar logueo
+        return None
 
-def updateJobStatus(job):
+    jobImen = imenJob(imen)
+    jobImen.input_filename      = job.input_filename
+    jobImen.thumb_preset        = job.preset
+    jobImen.input_path           = job.input_path
+    jobImen.basename             = job.basename
+    jobImen.output_path          = job.output_path
+
+    try:
+        job.job_id = jobImen.start()
+        job.status = 'Q'
+        job.save()
+    except imenError as e:
+        job.message = 'Could not send job to transcoder ' + transcoder
+        transcoder.enabled = False
+        transcoder.save()
+        return None
+
+    return job.job_id
+
+
+def updateElmJobStatus(job):
     try:
         elm = elmServer(job.transcoder.ip, job.transcoder.port)
     except elmError as e:
@@ -160,6 +208,22 @@ def updateJobStatus(job):
     job.save()
 
 
+def updateImenJobStatus(job):
+    try:
+        imen = imenServer(job.transcoder.ip, job.transcoder.port)
+    except elmError as e:
+        job.status = 'E'
+        job.message = 'Transcoder ' + transcoder + 'unavailable'
+        job.save()
+        transcoder.enabled = False
+        transcoder.save()
+
+    jobImen = imenJob(imen, job.job_id)
+    jobStatus = jobImen.status()
+    job.status = jobStatus
+    job.message = jobImen.message()
+    job.save()
+
 def elmCafioloMain():
 
     logging.basicConfig(format   = '%(asctime)s - elemento.py -[%(levelname)s]: %(message)s',
@@ -173,17 +237,24 @@ def elmCafioloMain():
         job = getScheduleableJob()
 
         while job is not None:
-            transcoder = getBestTranscoder(job.preset)
 
-            if transcoder is not None:
-                startJob(job, transcoder)
+            if job.type == ELEMENTO_TYPE:
+                startElmJob(job)
+            elif job.type == IMEN_TYPE:
+                startImenJob(job)
             else:
-                break
+                job.status = 'E'
+                job.message = "Unrecognized job type: " + str(job.type)
+                job.save()
+
             job = getScheduleableJob()
 
         job_list = Job.objects.filter(Q(status = 'Q') | Q(status = 'P'))
         for job in job_list:
-            updateJobStatus(job)
+            if job.type == ELEMENTO_TYPE:
+                updateElmJobStatus(job)
+            elif job.type == IMEN_TYPE:
+                updateImenJobStatus(job)
 
         time.sleep(30)
 

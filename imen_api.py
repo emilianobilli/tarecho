@@ -66,7 +66,7 @@ class imenServer(object):
 
         if response['status'] == '404':
             jsonData = json.loads(content)
-            raise elmCafioloError(jsonData['message'])
+            raise imenError(jsonData['message'])
 
 
 class imenJob(object):
@@ -126,7 +126,7 @@ class imenJob(object):
             if self.basename is None:
                 raise imenError('basename not be None')
             if self.output_path is None:
-                raise elmCafioloError('output_path can not be None')
+                raise imenError('output_path can not be None')
             if self.thumb_preset is None:
                 raise imenError('thumb preset can not be None')
             job = {'job':

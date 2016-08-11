@@ -27,7 +27,7 @@ def elmcafiolo_GetPostJob(request):
 
     if request.method == 'POST':
         return elmcafiolo_PostJob(request)
-	
+
 
 def elmcafiolo_GetJob(request):
 
@@ -50,20 +50,21 @@ def elmcafiolo_PostJob(request):
     jsonData = json.loads(request.body)
 
     try:
-	preset = Preset.objects.get(name=jsonData['job']['preset'])
+        preset = Preset.objects.get(name=jsonData['job']['preset'])
     except ObjectDoesNotExist:
         status = http_NOT_FOUND
         return HttpResponse(json.dumps({'message': 'Preset not found'}), status=status, content_type='application/json')
 
     job = Job()
-    job.name               = jsonData['job']['name']
-    job.input_filename     = jsonData['job']['input_filename']
-    job.input_path         = jsonData['job']['input_path']
-    job.basename           = jsonData['job']['basename']
-    job.preset		   = preset
-    job.priority           = jsonData['job']['priority']
-    job.output_path        = jsonData['job']['output_path']
-    job.status             = 'U' # Unassigned
+    job.name                = jsonData['job']['name']
+    job.input_filename      = jsonData['job']['input_filename']
+    job.input_path          = jsonData['job']['input_path']
+    job.basename            = jsonData['job']['basename']
+    job.preset              = preset
+    job.priority            = jsonData['job']['priority']
+    job.output_path         = jsonData['job']['output_path']
+    job.status              = 'U' # Unassigned
+    job.type                = preset.type
 
     job.save()
 
@@ -85,9 +86,9 @@ def elmcafiolo_GetJobId(request, id):
         return HttpResponse(json.dumps({}), status=status, content_type='application/json')
 
     if job.transcoder is None:
-	transcoder = ''
+        transcoder = ''
     else:
-	transcoder = job.transcoder.name
+        transcoder = job.transcoder.name
 
     response = { "job" :
                         {
@@ -96,7 +97,7 @@ def elmcafiolo_GetJobId(request, id):
                             "preset": job.preset.name,
                             "input_filename":job.input_filename ,
                             "input_path": job.input_path ,
-			    "transcoder": transcoder,
+                            "transcoder": transcoder,
                             "basename": job.basename,
                             "output_path": job.output_path,
                             "priority": job.priority ,
@@ -122,14 +123,13 @@ def elmcafiolo_GetJobIdOutputFile(request, id):
     
     oflst = []
     if job.transcoder is not None:
-	server = elm.elmServer(job.transcoder.ip, job.transcoder.port)
-	jobElm = elm.elmJob(server, job.job_id)
-    
-    
-	file_list = jobElm.files()
+        server = elm.elmServer(job.transcoder.ip, job.transcoder.port)
+        jobElm = elm.elmJob(server, job.job_id)
 
-	for output_file in file_list:
-    	    oflst.append({"path": output_file['path'], "filename": output_file['filename']})
+        file_list = jobElm.files()
+
+        for output_file in file_list:
+            oflst.append({"path": output_file['path'], "filename": output_file['filename']})
 
 
     response = {"job":
