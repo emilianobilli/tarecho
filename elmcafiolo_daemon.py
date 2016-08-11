@@ -101,6 +101,7 @@ def getScheduleableJob():
         transcoder = getBestTranscoder(job.preset)
         if transcoder is not None:
             job.transcoder = transcoder
+            job.type = job.preset.type
             job.save()
             return job
 
@@ -173,7 +174,7 @@ def startImenJob(job):
 
     jobImen = imenJob(imen)
     jobImen.input_filename      = job.input_filename
-    jobImen.thumb_preset        = job.preset
+    jobImen.thumb_preset        = job.preset.name
     jobImen.input_path           = job.input_path
     jobImen.basename             = job.basename
     jobImen.output_path          = job.output_path
