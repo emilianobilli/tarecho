@@ -80,10 +80,10 @@ class elmCafioloServer(object):
     def isScheduleable(self, preset = None):
         if preset is None:
             raise elmCafioloError('Preset can not be None')
-        if self.server is None:
-            raise elmCafioloError('Server can not be None')
 
-        data = self.server.get('/job/issched/%s' % preset)
+        data = self.get('/job/issched/%s/' % preset)
+        if data is None:
+            raise elmCafioloError('Preset %s does not exist.' % preset)
         jsonData = json.loads(data)
         sched = jsonData['scheduleable']
 
@@ -193,3 +193,5 @@ class elmCafioloJob(object):
         else:
             raise elmCafioloError('Job have an id: %s. Imposible start a Job with ID' % str(self.id))
 
+elm = elmCafioloServer("localhost", "8000")
+print elm.isScheduleable("test")
