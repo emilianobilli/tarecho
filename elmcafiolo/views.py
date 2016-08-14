@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.http import HttpResponse
+from django.db.models import Q
 import json
 
 import elm
@@ -15,6 +16,9 @@ from django.core.exceptions import *
 http_POST_OK    = 201
 http_REQUEST_OK = 200
 http_NOT_FOUND  = 404
+
+ELEMENTO_TYPE = 'ELO'
+IMEN_TYPE = 'IME'
 
 
 def elmcafiolo_GetPostJob(request):
@@ -144,6 +148,31 @@ def elmcafiolo_GetJobIdOutputFile(request, id):
     return HttpResponse(json.dumps(response), status=status, content_type='application/json')
 
 
+def elmcafiolo_IsScheduleableJob(request, preset):
+    try:
+        preset = Preset.objects.get(name = preset)
+    except ObjectDoesNotExist:
+        status = http_NOT_FOUND
+        return HttpResponse(json.dumps({}), status=status, content_type='application/json')
+
+    type = preset.type
+
+    for trans in preset.transcoder.all():
+        activeJobs = len(Job.objects.filter(transcoder=trans).filter(Q(status='Q') | Q(status='P')).filter(type=type))
+
+        if type == ELEMENTO_TYPE:
+            freeSlots = trans.slots - activeJobs
+        elif type == IMEN_TYPE:
+            freeSlots = trans.imen_slots - activeJobs
+
+        if freeSlots > 0 and trans.enabled == True:
+            response = {"scheduleable": "True"}
+            status = http_REQUEST_OK
+            return HttpResponse(json.dumps(response), status=status, content_type='application/json')
+
+    response = {"scheduleable": "False"}
+    status = http_REQUEST_OK
+    return HttpResponse(json.dumps(response), status=status, content_type='application/json')
 
 
 

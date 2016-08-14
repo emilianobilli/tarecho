@@ -68,13 +68,29 @@ class elmCafioloServer(object):
             response, content = h.request(uri.geturl(),method,json.dumps(body),header)
         except socket.error as err:
             raise elmCafioloError(err)
-	
+
         if response['status'] == '201':
-	    return content
-	
-	if response['status'] == '404':
-	    jsonData = json.loads(content)
-	    raise elmCafioloError(jsonData['message'])
+            return content
+
+        if response['status'] == '404':
+            jsonData = json.loads(content)
+            raise elmCafioloError(jsonData['message'])
+
+
+    def isScheduleable(self, preset = None):
+        if preset is None:
+            raise elmCafioloError('Preset can not be None')
+        if self.server is None:
+            raise elmCafioloError('Server can not be None')
+
+        data = self.server.get('/job/issched/%s' % preset)
+        jsonData = json.loads(data)
+        sched = jsonData['scheduleable']
+
+        if sched == "True":
+            return True
+        else:
+            return False
 
 
 class elmCafioloJob(object):
@@ -85,30 +101,30 @@ class elmCafioloJob(object):
         if self.id is not None:
             self.__load()
         else:
-	    self.name 		= None
-	    self.preset 	= None
-	    self.input_filename = None
-	    self.input_path 	= None
-	    self.transcoder 	= None
-	    self.basename	= None
-	    self.output_path 	= None
-	    self.priority 	= 9
-	    self.__status 	= None
-	    self.__progress 	= None
-            self.__message 	= None
+            self.name           = None
+            self.preset         = None
+            self.input_filename = None
+            self.input_path     = None
+            self.transcoder     = None
+            self.basename       = None
+            self.output_path    = None
+            self.priority       = 9
+            self.__status       = None
+            self.__progress     = None
+            self.__message      = None
             
 
     def __load(self):
         data = self.server.get('/job/%s' % str(self.id))
         jsonData = json.loads(data)
-	self.name               = jsonData['job']['name']
-	self.preset      	= jsonData['job']['preset']
-	self.input_filename     = jsonData['job']['input_filename']
-	self.input_path         = jsonData['job']['input_path']
-	self.transcoder		= jsonData['job']['transcoder']
-	self.basename           = jsonData['job']['basename']
-	self.output_path        = jsonData['job']['output_path']	
-	self.priority           = jsonData['job']['priority']
+        self.name               = jsonData['job']['name']
+        self.preset             = jsonData['job']['preset']
+        self.input_filename     = jsonData['job']['input_filename']
+        self.input_path         = jsonData['job']['input_path']
+        self.transcoder         = jsonData['job']['transcoder']
+        self.basename           = jsonData['job']['basename']
+        self.output_path        = jsonData['job']['output_path']
+        self.priority           = jsonData['job']['priority']
         self.__status           = jsonData['job']['status']
         self.__progress         = jsonData['job']['progress']
         self.__message          = jsonData['job']['message']
@@ -170,12 +186,10 @@ class elmCafioloJob(object):
                    }
 
             response = self.server.post('/job/', job)
-	    responseJson = json.loads(response)
+            responseJson = json.loads(response)
             self.id = responseJson['job']['id']
             self.__load()
             return self.id
         else:
             raise elmCafioloError('Job have an id: %s. Imposible start a Job with ID' % str(self.id))
-
-
 

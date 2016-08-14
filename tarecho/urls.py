@@ -52,10 +52,12 @@ if 'elmcafiolo.apps.ElmcafioloConfig' in settings.INSTALLED_APPS:
     from elmcafiolo.views import elmcafiolo_GetPostJob
     from elmcafiolo.views import elmcafiolo_GetJobId
     from elmcafiolo.views import elmcafiolo_GetJobIdOutputFile
+    from elmcafiolo.views import elmcafiolo_IsScheduleableJob
     elmcafiolo_patterns = [
 	    url(r'^elmcafiolo/api/job/$', elmcafiolo_GetPostJob),
         url(r'^elmcafiolo/api/job/(?P<id>\d+)/$', elmcafiolo_GetJobId),
-        url(r'^elmcafiolo/api/job/(?P<id>\d+)/outputfile/$', elmcafiolo_GetJobIdOutputFile)
+        url(r'^elmcafiolo/api/job/(?P<id>\d+)/outputfile/$', elmcafiolo_GetJobIdOutputFile),
+        url(r'^elmcafiolo/api/job/issched/(?P<preset>\w{0,50})/$', elmcafiolo_IsScheduleableJob)
     ]
     ELMCAFIOLO = True
 

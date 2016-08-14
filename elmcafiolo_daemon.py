@@ -81,7 +81,12 @@ def getBestTranscoder(preset):
 
     for trans in transList:
         activeJobs = len(Job.objects.filter(transcoder = trans).filter(Q(status = 'Q') | Q(status = 'P')).filter(type = type))
-        freeSlots = trans.slots - activeJobs
+
+        if type == ELEMENTO_TYPE:
+            freeSlots = trans.slots - activeJobs
+        elif type == IMEN_TYPE:
+            freeSlots = trans.imen_slots - activeJobs
+
         if freeSlots > bestTransFreeSlots:
             bestTransFreeSlots = freeSlots
             bestTrans = trans
