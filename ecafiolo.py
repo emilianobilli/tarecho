@@ -192,6 +192,3 @@ class elmCafioloJob(object):
             return self.id
         else:
             raise elmCafioloError('Job have an id: %s. Imposible start a Job with ID' % str(self.id))
-
-elm = elmCafioloServer("localhost", "8000")
-print elm.isScheduleable("test")
