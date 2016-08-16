@@ -156,23 +156,26 @@ def elmcafiolo_IsScheduleableJob(request, preset):
         return HttpResponse(json.dumps({}), status=status, content_type='application/json')
 
     type = preset.type
+    freeSlots = 0
+    unassignedJobs = len(Job.objects.filter(status='U').filter(type=type))
 
     for trans in preset.transcoder.all():
-        activeJobs = len(Job.objects.filter(transcoder=trans).filter(Q(status='Q') | Q(status='P')).filter(type=type))
+        if trans.enabled == True:
+            activeJobs = len(Job.objects.filter(transcoder=trans).filter(Q(status='Q') | Q(status='P')).filter(type=type))
 
-        if type == ELEMENTO_TYPE:
-            freeSlots = trans.slots - activeJobs
-        elif type == IMEN_TYPE:
-            freeSlots = trans.imen_slots - activeJobs
+            if type == ELEMENTO_TYPE:
+                freeSlots = freeSlots + trans.slots - activeJobs
+            elif type == IMEN_TYPE:
+                freeSlots = freeSlots + trans.imen_slots - activeJobs
 
-        if freeSlots > 0 and trans.enabled == True:
-            response = {"scheduleable": "True"}
-            status = http_REQUEST_OK
-            return HttpResponse(json.dumps(response), status=status, content_type='application/json')
-
-    response = {"scheduleable": "False"}
-    status = http_REQUEST_OK
-    return HttpResponse(json.dumps(response), status=status, content_type='application/json')
+    if freeSlots - unassignedJobs > 0:
+        response = {"scheduleable": "True"}
+        status = http_REQUEST_OK
+        return HttpResponse(json.dumps(response), status=status, content_type='application/json')
+    else:
+        response = {"scheduleable": "False"}
+        status = http_REQUEST_OK
+        return HttpResponse(json.dumps(response), status=status, content_type='application/json')
 
 
 
